@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Job Application Automation System</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background: #f5f7fb;
+        color: #1d2636;
+      }
+      .container {
+        max-width: 900px;
+        margin: 30px auto;
+        background: white;
+        border-radius: 10px;
+        padding: 24px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      }
+      h1 {
+        margin-top: 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+      .full {
+        grid-column: 1 / -1;
+      }
+      label {
+        font-size: 0.9rem;
+        font-weight: 700;
+        display: block;
+        margin-bottom: 6px;
+      }
+      input,
+      textarea,
+      button {
+        width: 100%;
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid #cdd5e1;
+        font-size: 0.95rem;
+      }
+      button {
+        border: none;
+        cursor: pointer;
+        background: #2563eb;
+        color: white;
+        font-weight: 700;
+      }
+      button:disabled {
+        opacity: 0.6;
+      }
+      .status {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 8px;
+      }
+      .ok {
+        background: #e7f8ee;
+        color: #065f46;
+      }
+      .error {
+        background: #fdecec;
+        color: #991b1b;
+      }
+      .helper {
+        margin-top: 20px;
+        background: #f3f6fc;
+        border: 1px dashed #8ba4d8;
+        padding: 14px;
+        border-radius: 8px;
+      }
+      @media (max-width: 768px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <script type="text/babel">
+      const { useState } = React;
+
+      function App() {
+        const [form, setForm] = useState({
+          fullName: '',
+          email: '',
+          phone: '',
+          roleApplied: '',
+          yearsOfExperience: '',
+          resumeText: '',
+          coverLetter: ''
+        });
+        const [status, setStatus] = useState(null);
+        const [isSubmitting, setIsSubmitting] = useState(false);
+
+        const handleChange = (e) => {
+          setForm({ ...form, [e.target.name]: e.target.value });
+        };
+
+        const handleSubmit = async (e) => {
+          e.preventDefault();
+          setStatus(null);
+          setIsSubmitting(true);
+
+          try {
+            const response = await fetch('/api/applications', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(form)
+            });
+
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.message || 'Submission failed');
+            }
+
+            const powerMessage = result.powerAutomate?.skipped
+              ? `Power Automate not triggered: ${result.powerAutomate.reason}`
+              : 'Power Automate workflow triggered successfully.';
+
+            setStatus({
+              type: 'ok',
+              text: `Application submitted for ${result.application.roleApplied}. ${powerMessage}`
+            });
+
+            setForm({
+              fullName: '',
+              email: '',
+              phone: '',
+              roleApplied: '',
+              yearsOfExperience: '',
+              resumeText: '',
+              coverLetter: ''
+            });
+          } catch (error) {
+            setStatus({ type: 'error', text: error.message });
+          } finally {
+            setIsSubmitting(false);
+          }
+        };
+
+        return (
+          <div className="container">
+            <h1>AI Job Application Automation System</h1>
+            <p>Submit a candidate application and trigger your Power Automate workflow.</p>
+
+            <form onSubmit={handleSubmit} className="grid">
+              <div>
+                <label>Full Name *</label>
+                <input name="fullName" value={form.fullName} onChange={handleChange} required />
+              </div>
+              <div>
+                <label>Email *</label>
+                <input name="email" type="email" value={form.email} onChange={handleChange} required />
+              </div>
+              <div>
+                <label>Phone</label>
+                <input name="phone" value={form.phone} onChange={handleChange} />
+              </div>
+              <div>
+                <label>Role Applied *</label>
+                <input name="roleApplied" value={form.roleApplied} onChange={handleChange} required />
+              </div>
+              <div>
+                <label>Years of Experience</label>
+                <input name="yearsOfExperience" type="number" value={form.yearsOfExperience} onChange={handleChange} />
+              </div>
+              <div className="full">
+                <label>Resume Text *</label>
+                <textarea name="resumeText" rows="6" value={form.resumeText} onChange={handleChange} required />
+              </div>
+              <div className="full">
+                <label>Cover Letter</label>
+                <textarea name="coverLetter" rows="4" value={form.coverLetter} onChange={handleChange} />
+              </div>
+              <div className="full">
+                <button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? 'Submitting...' : 'Submit Application'}
+                </button>
+              </div>
+            </form>
+
+            {status && <div className={`status ${status.type}`}>{status.text}</div>}
+
+            <div className="helper">
+              <strong>Power Automate setup note:</strong>
+              <div>
+                Add your Flow HTTP trigger URL in backend <code>POWER_AUTOMATE_WEBHOOK_URL</code> so each submission starts
+                your automation.
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+  </body>
+</html>
